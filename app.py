@@ -7,17 +7,20 @@ import json
 
 # Load configuration from properties.yml or environment variables
 def load_config():
-    # First, try to load from environment variables (for production/Render)
-    if os.getenv('RENDER'):  # Render sets this automatically
+    # Check if we're in production (Render sets PORT env var, or we can check for other indicators)
+    # Also check if properties.yml exists for local development
+    config_path = os.path.join(os.path.dirname(__file__), 'properties.yml')
+
+    # If properties.yml doesn't exist OR we're in production, use environment variables
+    if not os.path.exists(config_path) or os.getenv('PORT') or os.getenv('RENDER_INSTANCE_ID'):
         return None  # Use environment variables
 
     # For local development, try to load properties.yml
-    config_path = os.path.join(os.path.dirname(__file__), 'properties.yml')
     try:
         with open(config_path, 'r') as file:
             return yaml.safe_load(file)
-    except FileNotFoundError:
-        print("Warning: properties.yml not found. Using environment variables as fallback.")
+    except Exception as e:
+        print(f"Warning: Could not load properties.yml: {e}. Using environment variables as fallback.")
         return None
 
 # Load configuration
