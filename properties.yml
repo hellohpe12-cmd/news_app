@@ -1,0 +1,18 @@
+news_api:
+  api_key: "cd7aa6749e28462a923b1458f3c50aa1"
+  base_url: "https://newsapi.org/v2"
+
+google_ai:
+  api_key: "AIzaSyA_P9G3k8leIXNaUZ-3vWNAr97veQ3_Cf8"
+  project_id: "ai-ml-integrations"
+  region: "us-central1"
+  gemini_model: "gemini-2.0-flash"
+  gemini_tuned_model: "projects/25508203682/locations/us-central1/endpoints/846647043131703296"
+
+app:
+  debug: true
+  secret_key: "your-secret-key-here"
+
+deployment:
+  port: 3003
+  host: "0.0.0.0"

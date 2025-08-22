@@ -1,0 +1,18 @@
+news_api:
+  api_key: "your_news_api_key_here"
+  base_url: "https://newsapi.org/v2"
+
+google_ai:
+  api_key: "your_google_api_key_here"
+  project_id: "your_project_id"
+  region: "us-central1"
+  gemini_model: "gemini-2.0-flash"
+  gemini_tuned_model: "your_tuned_model_endpoint"
+
+app:
+  debug: true
+  secret_key: "your-secret-key-here"
+
+deployment:
+  port: 5000
+  host: "0.0.0.0"
