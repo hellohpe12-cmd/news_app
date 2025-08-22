@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Your News Feed - News Hub{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2><i class="fas fa-newspaper me-2"></i>Your Personalized News Feed</h2>
+                <p class="text-muted mb-0">
+                    Topics:
+                    {% for topic in topics %}
+                    <span class="badge bg-primary me-1">{{ categories[topic].name }}</span>
+                    {% endfor %}
+                    | Country: <span class="badge bg-info">{{ countries[country] }}</span>
+                </p>
+            </div>
+            <div>
+                <a href="/" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Change Topics
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selection Controls -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="mb-0">
+                            <i class="fas fa-hand-pointer me-2"></i>
+                            Select articles you find interesting:
+                        </h6>
+                        <small class="text-muted">We'll use your selected articles to create personalized content</small>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="selectAllArticles">
+                                <i class="fas fa-check-double me-1"></i>Select All
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAllArticles">
+                                <i class="fas fa-times me-1"></i>Clear All
+                            </button>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge bg-success" id="selectedCounter">0 selected</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div id="loadingSpinner" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">Loading your news articles...</p>
+</div>
+
+<!-- News Articles Container -->
+<div id="newsContainer" class="row" style="display: none;">
+    <!-- Articles will be loaded here -->
+</div>
+
+<!-- No Articles Message -->
+<div id="noArticles" class="text-center py-5" style="display: none;">
+    <i class="fas fa-exclamation-circle fa-3x text-muted mb-3"></i>
+    <h4>No articles found</h4>
+    <p class="text-muted">Try selecting different topics or check back later.</p>
+    <a href="/" class="btn btn-primary">Choose Different Topics</a>
+</div>
+
+<!-- Generate Content Section -->
+<div id="generateSection" class="row mt-5" style="display: none;">
+    <div class="col-12">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-magic me-2"></i>Ready to Create Your Personalized Content
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <p class="mb-2">
+                            <strong>Selected Articles:</strong> <span id="finalSelectedCount">0</span>
+                        </p>
+                        <div class="form-group">
+                            <label for="userPreferences" class="form-label">
+                                <i class="fas fa-user me-1"></i>Tell us about your interests (optional):
+                            </label>
+                            <textarea id="userPreferences" class="form-control" rows="3"
+                                      placeholder="e.g., I'm interested in startup trends, emerging technologies, market analysis..."></textarea>
+                            <small class="text-muted">This helps our AI create more personalized content for you</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <button id="generateContentBtn" class="btn btn-success btn-lg w-100 mb-3" disabled>
+                            <i class="fas fa-sparkles me-2"></i>
+                            Generate My Content
+                        </button>
+                        <small class="text-muted">Powered by Gemini AI</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.article-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.article-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.article-card.selected {
+    border: 2px solid #28a745 !important;
+    background-color: #f8fff9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(40,167,69,0.3);
+}
+
+.article-selection-indicator {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 10;
+}
+
+.article-selection-indicator .fa-check-circle {
+    display: none;
+}
+
+.article-card.selected .article-selection-indicator .fa-check-circle {
+    display: block;
+}
+
+.topic-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 5;
+}
+
+.article-image {
+    height: 200px;
+    object-fit: cover;
+}
+
+.article-content {
+    padding-top: 40px; /* Space for topic badge */
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    let selectedArticles = new Set();
+    let allArticles = [];
+
+    // Load news articles
+    loadNewsArticles();
+
+    // Event listeners
+    $('#selectAllArticles').click(selectAllArticles);
+    $('#clearAllArticles').click(clearAllArticles);
+    $('#generateContentBtn').click(generatePersonalizedContent);
+
+    function loadNewsArticles() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const topics = urlParams.getAll('topics');
+        const country = urlParams.get('country') || 'us';
+
+        // Build the query string manually to handle multiple topics correctly
+        let queryParams = new URLSearchParams();
+        topics.forEach(topic => queryParams.append('topics', topic));
+        queryParams.append('country', country);
+
+        $.ajax({
+            url: '/api/news?' + queryParams.toString(),
+            method: 'GET',
+            success: function(data) {
+                $('#loadingSpinner').hide();
+
+                if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+                    allArticles = data.articles;
+                    displayArticles(data.articles);
+                    $('#newsContainer').show();
+                } else {
+                    $('#noArticles').show();
+                    console.log('No articles found or API error:', data);
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#loadingSpinner').hide();
+                $('#noArticles').show();
+                console.error('API request failed:', error, xhr.responseText);
+            }
+        });
+    }
+
+    function displayArticles(articles) {
+        const container = $('#newsContainer');
+        container.empty();
+
+        articles.forEach(function(article, index) {
+            if (!article.title || article.title === '[Removed]') {
+                return;
+            }
+
+            const imageUrl = article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image';
+            const publishedDate = new Date(article.publishedAt).toLocaleDateString();
+            const description = article.description || 'No description available.';
+            const topicName = article.topic_name || 'General';
+
+            const articleCard = `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card article-card h-100" data-article-index="${index}">
+                        <div class="topic-badge">
+                            <span class="badge bg-primary">${topicName}</span>
+                        </div>
+                        <div class="article-selection-indicator">
+                            <i class="fas fa-check-circle fa-2x text-success"></i>
+                        </div>
+                        <img src="${imageUrl}" class="card-img-top article-image" alt="Article Image"
+                             onerror="this.src='https://via.placeholder.com/400x200?text=No+Image'">
+                        <div class="card-body article-content d-flex flex-column">
+                            <h6 class="card-title">${article.title}</h6>
+                            <p class="card-text flex-grow-1 small">${description}</p>
+                            <div class="mt-auto">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">${article.source.name}</small>
+                                    <small class="text-muted">${publishedDate}</small>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-primary btn-sm view-article-btn"
+                                            data-url="${article.url}">
+                                        <i class="fas fa-external-link-alt me-1"></i>View Article
+                                    </button>
+                                    <button class="btn btn-success btn-sm select-article-btn"
+                                            data-article-index="${index}">
+                                        <i class="fas fa-plus me-1"></i>Select Article
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.append(articleCard);
+        });
+
+        // Add click handlers for view and select buttons
+        $('.view-article-btn').click(function(e) {
+            e.stopPropagation();
+            const url = $(this).data('url');
+            window.open(url, '_blank');
+        });
+
+        $('.select-article-btn').click(function(e) {
+            e.stopPropagation();
+            const card = $(this).closest('.article-card');
+            toggleArticleSelection(card);
+        });
+    }
+
+    function toggleArticleSelection(card) {
+        const articleIndex = parseInt(card.data('article-index'));
+
+        if (selectedArticles.has(articleIndex)) {
+            selectedArticles.delete(articleIndex);
+            card.removeClass('selected');
+        } else {
+            selectedArticles.add(articleIndex);
+            card.addClass('selected');
+        }
+
+        updateSelectionUI();
+    }
+
+    function selectAllArticles() {
+        $('.article-card').each(function() {
+            const articleIndex = parseInt($(this).data('article-index'));
+            selectedArticles.add(articleIndex);
+            $(this).addClass('selected');
+        });
+        updateSelectionUI();
+    }
+
+    function clearAllArticles() {
+        selectedArticles.clear();
+        $('.article-card').removeClass('selected');
+        updateSelectionUI();
+    }
+
+    function updateSelectionUI() {
+        const count = selectedArticles.size;
+        $('#selectedCounter').text(`${count} selected`);
+        $('#finalSelectedCount').text(count);
+
+        if (count > 0) {
+            $('#generateSection').show();
+            $('#generateContentBtn').prop('disabled', false);
+        } else {
+            $('#generateSection').hide();
+            $('#generateContentBtn').prop('disabled', true);
+        }
+
+        // Update counter color
+        if (count === 0) {
+            $('#selectedCounter').removeClass('bg-success bg-warning').addClass('bg-secondary');
+        } else if (count < 3) {
+            $('#selectedCounter').removeClass('bg-secondary bg-success').addClass('bg-warning');
+        } else {
+            $('#selectedCounter').removeClass('bg-secondary bg-warning').addClass('bg-success');
+        }
+    }
+
+    function generatePersonalizedContent() {
+        const selectedArticlesList = Array.from(selectedArticles).map(index => allArticles[index]);
+        const userPreferences = $('#userPreferences').val().trim();
+
+        if (selectedArticlesList.length === 0) {
+            alert('Please select at least one article.');
+            return;
+        }
+
+        // Show loading state
+        const originalBtn = $('#generateContentBtn');
+        originalBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Generating...');
+
+        // Send to backend for content generation
+        $.ajax({
+            url: '/generate-content',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                articles: selectedArticlesList,
+                preferences: userPreferences
+            }),
+            success: function(data) {
+                if (data.status === 'success') {
+                    // Store generated content and redirect
+                    sessionStorage.setItem('generatedContent', JSON.stringify(data));
+                    window.location.href = '/personalized-content';
+                } else {
+                    alert('Content generation failed: ' + data.message);
+                    originalBtn.prop('disabled', false).html('<i class="fas fa-sparkles me-2"></i>Generate My Content');
+                }
+            },
+            error: function() {
+                alert('Failed to generate content. Please try again.');
+                originalBtn.prop('disabled', false).html('<i class="fas fa-sparkles me-2"></i>Generate My Content');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

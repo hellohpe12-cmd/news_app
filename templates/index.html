@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}News Hub - Your Personalized News{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="jumbotron bg-primary text-white p-5 rounded mb-4">
+            <h1 class="display-4">Welcome to News Hub</h1>
+            <p class="lead">Stay updated with the latest news from around the world. Choose your preferences and get personalized news content.</p>
+        </div>
+    </div>
+</div>
+
+<!-- News Preferences Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="mb-3">Select Your News Preferences</h2>
+
+        <!-- Search Bar -->
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search for specific news topics...">
+                    <button class="btn btn-outline-primary" type="button" id="searchBtn">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Selection -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="categorySelect" class="form-label">Category:</label>
+                <select id="categorySelect" class="form-select">
+                    {% for category in categories %}
+                    <option value="{{ category }}" {% if category == 'general' %}selected{% endif %}>
+                        {{ category.title() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="countrySelect" class="form-label">Country:</label>
+                <select id="countrySelect" class="form-select">
+                    {% for code, name in countries.items() %}
+                    <option value="{{ code }}" {% if code == 'us' %}selected{% endif %}>
+                        {{ name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button id="loadNewsBtn" class="btn btn-primary btn-lg">
+            <i class="fas fa-newspaper me-2"></i>Load News
+        </button>
+    </div>
+</div>
+
+<!-- Loading Spinner -->
+<div id="loadingSpinner" class="text-center loading-spinner">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="mt-2">Loading your personalized news...</p>
+</div>
+
+<!-- News Articles Section -->
+<div id="newsContainer" class="row">
+    <!-- News articles will be loaded here dynamically -->
+</div>
+
+<!-- No Results Message -->
+<div id="noResults" class="text-center py-5" style="display: none;">
+    <i class="fas fa-exclamation-circle fa-3x text-muted mb-3"></i>
+    <h4>No news articles found</h4>
+    <p class="text-muted">Try adjusting your search criteria or selecting a different category.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Load default news on page load
+    loadNews();
+
+    // Event listeners
+    $('#loadNewsBtn').click(loadNews);
+    $('#searchBtn').click(loadNews);
+    $('#categorySelect, #countrySelect').change(loadNews);
+
+    // Enter key search
+    $('#searchInput').keypress(function(e) {
+        if (e.which == 13) {
+            loadNews();
+        }
+    });
+
+    function loadNews() {
+        const category = $('#categorySelect').val();
+        const country = $('#countrySelect').val();
+        const search = $('#searchInput').val();
+
+        // Show loading spinner
+        $('#loadingSpinner').show();
+        $('#newsContainer').empty();
+        $('#noResults').hide();
+
+        // Make API request
+        $.ajax({
+            url: '/news',
+            method: 'GET',
+            data: {
+                category: category,
+                country: country,
+                search: search
+            },
+            success: function(data) {
+                $('#loadingSpinner').hide();
+
+                if (data.status === 'ok' && data.articles && data.articles.length > 0) {
+                    displayNews(data.articles);
+                } else {
+                    $('#noResults').show();
+                    if (data.message) {
+                        console.error('API Error:', data.message);
+                    }
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#loadingSpinner').hide();
+                $('#noResults').show();
+                console.error('Request failed:', error);
+            }
+        });
+    }
+
+    function displayNews(articles) {
+        const container = $('#newsContainer');
+
+        articles.forEach(function(article) {
+            if (!article.title || article.title === '[Removed]') {
+                return; // Skip removed articles
+            }
+
+            const imageUrl = article.urlToImage || 'https://via.placeholder.com/400x200?text=No+Image';
+            const publishedDate = new Date(article.publishedAt).toLocaleDateString();
+            const description = article.description || 'No description available.';
+
+            const articleCard = `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card news-card h-100">
+                        <img src="${imageUrl}" class="card-img-top news-image" alt="News Image"
+                             onerror="this.src='https://via.placeholder.com/400x200?text=No+Image'">
+                        <div class="card-body d-flex flex-column">
+                            <div class="mb-2">
+                                <span class="category-chip">${$('#categorySelect').val()}</span>
+                                <small class="text-muted ms-2">${publishedDate}</small>
+                            </div>
+                            <h5 class="card-title">${article.title}</h5>
+                            <p class="card-text flex-grow-1">${description}</p>
+                            <div class="mt-auto">
+                                <p class="card-text">
+                                    <small class="text-muted">Source: ${article.source.name}</small>
+                                </p>
+                                <a href="${article.url}" target="_blank" class="btn btn-primary">
+                                    Read More <i class="fas fa-external-link-alt ms-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.append(articleCard);
+        });
+    }
+});
+</script>
+{% endblock %}

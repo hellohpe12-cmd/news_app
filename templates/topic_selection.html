@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Select Your News Interests - News Hub{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 text-center mb-5">
+        <h1 class="display-4 mb-3">🎯 Choose Your News Interests</h1>
+        <p class="lead text-muted">Select the topics you're most interested in, and we'll find the latest news for you</p>
+    </div>
+</div>
+
+<form id="topicSelectionForm" action="/news-feed" method="GET">
+    <!-- Country Selection -->
+    <div class="row mb-4">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h5><i class="fas fa-globe me-2"></i>Select Your Region</h5>
+                </div>
+                <div class="card-body">
+                    <select name="country" class="form-select form-select-lg" required>
+                        {% for code, name in countries.items() %}
+                        <option value="{{ code }}" {% if code == 'us' %}selected{% endif %}>
+                            {{ name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Topic Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h5><i class="fas fa-tags me-2"></i>Choose Your News Categories</h5>
+                    <small class="text-muted">Select at least one category (you can choose multiple)</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for category_id, category_info in categories.items() %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="topic-card card h-100 border-2" data-topic="{{ category_id }}">
+                                <div class="card-body text-center p-4">
+                                    <input type="checkbox" name="topics" value="{{ category_id }}" class="d-none topic-checkbox">
+                                    <i class="fas fa-{{ category_info.icon }} fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">{{ category_info.name }}</h5>
+                                    <p class="card-text text-muted">{{ category_info.description }}</p>
+                                    <div class="selection-indicator">
+                                        <i class="fas fa-check-circle fa-2x text-success" style="display: none;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <div class="alert alert-warning" id="selectionWarning" style="display: none;">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Please select at least one news category to continue.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg px-5 py-3" id="continueBtn" disabled>
+                <i class="fas fa-arrow-right me-2"></i>
+                Find My News
+                <span class="badge bg-light text-primary ms-2" id="selectedCount">0</span>
+            </button>
+
+            <div class="mt-3">
+                <button type="button" class="btn btn-outline-secondary" id="selectAllBtn">
+                    <i class="fas fa-check-double me-2"></i>Select All
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="clearAllBtn">
+                    <i class="fas fa-times me-2"></i>Clear All
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Quick Preset Options -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-header text-center">
+                <h6><i class="fas fa-bolt me-2"></i>Quick Presets</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-primary btn-sm w-100 preset-btn"
+                                data-preset="technology,science">
+                            <i class="fas fa-laptop-code me-1"></i>Tech & Science
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-success btn-sm w-100 preset-btn"
+                                data-preset="business,technology">
+                            <i class="fas fa-briefcase me-1"></i>Business & Tech
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-warning btn-sm w-100 preset-btn"
+                                data-preset="sports,entertainment">
+                            <i class="fas fa-football-ball me-1"></i>Sports & Fun
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-outline-info btn-sm w-100 preset-btn"
+                                data-preset="health,science">
+                            <i class="fas fa-heartbeat me-1"></i>Health & Science
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.topic-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-color: #dee2e6 !important;
+}
+
+.topic-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: #007bff !important;
+}
+
+.topic-card.selected {
+    border-color: #28a745 !important;
+    background-color: #f8fff9;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(40,167,69,0.2);
+}
+
+.selection-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.topic-card.selected .selection-indicator i {
+    display: block !important;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    let selectedTopics = new Set();
+
+    // Topic card click handler
+    $('.topic-card').click(function() {
+        const topic = $(this).data('topic');
+        const checkbox = $(this).find('.topic-checkbox');
+
+        if (selectedTopics.has(topic)) {
+            selectedTopics.delete(topic);
+            $(this).removeClass('selected');
+            checkbox.prop('checked', false);
+        } else {
+            selectedTopics.add(topic);
+            $(this).addClass('selected');
+            checkbox.prop('checked', true);
+        }
+
+        updateUI();
+    });
+
+    // Preset buttons
+    $('.preset-btn').click(function() {
+        const preset = $(this).data('preset').split(',');
+        clearAllSelections();
+
+        preset.forEach(topic => {
+            selectedTopics.add(topic);
+            $(`.topic-card[data-topic="${topic}"]`).addClass('selected');
+            $(`.topic-card[data-topic="${topic}"] .topic-checkbox`).prop('checked', true);
+        });
+
+        updateUI();
+    });
+
+    // Select All button
+    $('#selectAllBtn').click(function() {
+        $('.topic-card').each(function() {
+            const topic = $(this).data('topic');
+            selectedTopics.add(topic);
+            $(this).addClass('selected');
+            $(this).find('.topic-checkbox').prop('checked', true);
+        });
+        updateUI();
+    });
+
+    // Clear All button
+    $('#clearAllBtn').click(function() {
+        clearAllSelections();
+        updateUI();
+    });
+
+    // Form submission validation
+    $('#topicSelectionForm').submit(function(e) {
+        if (selectedTopics.size === 0) {
+            e.preventDefault();
+            $('#selectionWarning').show();
+            $('html, body').animate({scrollTop: $('#selectionWarning').offset().top - 100}, 500);
+        }
+    });
+
+    function clearAllSelections() {
+        selectedTopics.clear();
+        $('.topic-card').removeClass('selected');
+        $('.topic-checkbox').prop('checked', false);
+    }
+
+    function updateUI() {
+        const count = selectedTopics.size;
+        $('#selectedCount').text(count);
+        $('#continueBtn').prop('disabled', count === 0);
+        $('#selectionWarning').hide();
+
+        // Update button text
+        if (count === 0) {
+            $('#continueBtn').html('<i class="fas fa-arrow-right me-2"></i>Find My News <span class="badge bg-light text-primary ms-2">0</span>');
+        } else {
+            $('#continueBtn').html(`<i class="fas fa-arrow-right me-2"></i>Find My News <span class="badge bg-light text-primary ms-2">${count}</span>`);
+        }
+    }
+});
+</script>
+{% endblock %}

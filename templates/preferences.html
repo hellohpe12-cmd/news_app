@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}News Preferences - News Hub{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-cog me-2"></i>News Preferences
+        </h1>
+        <p class="lead text-muted">Customize your news experience by selecting your favorite categories and regions.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Categories Section -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-tags me-2"></i>Favorite Categories
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Select the news categories you're most interested in:</p>
+                <div class="row">
+                    {% for category in categories %}
+                    <div class="col-6 mb-3">
+                        <div class="preference-card card text-center p-3" data-category="{{ category }}">
+                            <div class="card-body p-2">
+                                <i class="fas fa-{{
+                                    'globe' if category == 'general' else
+                                    'briefcase' if category == 'business' else
+                                    'film' if category == 'entertainment' else
+                                    'heartbeat' if category == 'health' else
+                                    'microscope' if category == 'science' else
+                                    'football-ball' if category == 'sports' else
+                                    'laptop-code'
+                                }} fa-2x mb-2 text-primary"></i>
+                                <h6 class="card-title">{{ category.title() }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Countries Section -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-globe-americas me-2"></i>Preferred Regions
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Choose the countries you want news from:</p>
+                <div class="row">
+                    {% for code, name in countries.items() %}
+                    <div class="col-12 mb-2">
+                        <div class="preference-card card p-2" data-country="{{ code }}">
+                            <div class="card-body d-flex align-items-center p-2">
+                                <i class="fas fa-flag me-3 text-primary"></i>
+                                <span>{{ name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Preferences Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h5>Your Current Preferences</h5>
+                <div id="selectedPreferences" class="mb-3">
+                    <span class="badge bg-primary me-2">Categories: <span id="selectedCategories">None</span></span>
+                    <span class="badge bg-success">Country: <span id="selectedCountry">United States</span></span>
+                </div>
+                <button id="savePreferences" class="btn btn-success btn-lg me-2">
+                    <i class="fas fa-save me-2"></i>Save Preferences
+                </button>
+                <button id="resetPreferences" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-undo me-2"></i>Reset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4 mb-3">
+                        <a href="/?category=technology&country=us" class="btn btn-outline-primary btn-lg w-100">
+                            <i class="fas fa-laptop-code d-block mb-2"></i>
+                            Tech News
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="/?category=business&country=us" class="btn btn-outline-success btn-lg w-100">
+                            <i class="fas fa-briefcase d-block mb-2"></i>
+                            Business
+                        </a>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <a href="/?category=sports&country=us" class="btn btn-outline-warning btn-lg w-100">
+                            <i class="fas fa-football-ball d-block mb-2"></i>
+                            Sports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    let selectedCategories = new Set();
+    let selectedCountry = 'us';
+
+    // Load saved preferences
+    loadPreferences();
+
+    // Category selection
+    $('.preference-card[data-category]').click(function() {
+        const category = $(this).data('category');
+
+        if (selectedCategories.has(category)) {
+            selectedCategories.delete(category);
+            $(this).removeClass('selected');
+        } else {
+            selectedCategories.add(category);
+            $(this).addClass('selected');
+        }
+
+        updatePreferencesDisplay();
+    });
+
+    // Country selection
+    $('.preference-card[data-country]').click(function() {
+        $('.preference-card[data-country]').removeClass('selected');
+        $(this).addClass('selected');
+        selectedCountry = $(this).data('country');
+        updatePreferencesDisplay();
+    });
+
+    // Save preferences
+    $('#savePreferences').click(function() {
+        savePreferences();
+
+        // Show success message
+        const btn = $(this);
+        const originalText = btn.html();
+        btn.html('<i class="fas fa-check me-2"></i>Saved!').prop('disabled', true);
+
+        setTimeout(() => {
+            btn.html(originalText).prop('disabled', false);
+        }, 2000);
+    });
+
+    // Reset preferences
+    $('#resetPreferences').click(function() {
+        selectedCategories.clear();
+        selectedCountry = 'us';
+        $('.preference-card').removeClass('selected');
+        $('.preference-card[data-country="us"]').addClass('selected');
+        updatePreferencesDisplay();
+        localStorage.removeItem('newsPreferences');
+    });
+
+    function updatePreferencesDisplay() {
+        const categoriesText = selectedCategories.size > 0 ?
+            Array.from(selectedCategories).map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ') :
+            'None';
+
+        const countryName = $('.preference-card[data-country="' + selectedCountry + '"] span').text();
+
+        $('#selectedCategories').text(categoriesText);
+        $('#selectedCountry').text(countryName);
+    }
+
+    function savePreferences() {
+        const preferences = {
+            categories: Array.from(selectedCategories),
+            country: selectedCountry,
+            savedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem('newsPreferences', JSON.stringify(preferences));
+    }
+
+    function loadPreferences() {
+        const saved = localStorage.getItem('newsPreferences');
+        if (saved) {
+            const preferences = JSON.parse(saved);
+
+            selectedCategories = new Set(preferences.categories || []);
+            selectedCountry = preferences.country || 'us';
+
+            // Update UI
+            selectedCategories.forEach(category => {
+                $('.preference-card[data-category="' + category + '"]').addClass('selected');
+            });
+
+            $('.preference-card[data-country="' + selectedCountry + '"]').addClass('selected');
+            updatePreferencesDisplay();
+        } else {
+            // Default selection
+            $('.preference-card[data-country="us"]').addClass('selected');
+            updatePreferencesDisplay();
+        }
+    }
+});
+</script>
+{% endblock %}
